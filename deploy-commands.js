@@ -1,68 +1,65 @@
 require("dotenv").config();
 
-const { Client, GatewayIntentBits, Events } = require("discord.js");
-const config = require("./src/config");
-const { connect } = require("./src/db");
-const { ensureIndexes } = require("./src/db/indexes");
-const { registerInteractionHandler } = require("./src/handlers/interactions");
+const { REST, Routes, SlashCommandBuilder } = require("discord.js");
 
-// Commands
-const ping = require("./src/commands/ping");
-const dbtest = require("./src/commands/dbtest");
-const stafflog = require("./src/commands/stafflog");
-const gamehistory = require("./src/commands/gamehistory");
-const caseCmd = require("./src/commands/case");
-const voidcase = require("./src/commands/voidcase");
-const restorecase = require("./src/commands/restorecase");
+const commands = [
+  new SlashCommandBuilder().setName("ping").setDescription("Check if the bot is alive"),
 
-process.on("unhandledRejection", (err) => console.error("Unhandled rejection:", err));
-process.on("uncaughtException", (err) => console.error("Uncaught exception:", err));
+  new SlashCommandBuilder().setName("dbtest").setDescription("Test MongoDB insert/read"),
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
-});
+  new SlashCommandBuilder().setName("stafflog").setDescription("Log a moderation action"),
 
-client.once(Events.ClientReady, async (c) => {
-  console.log(`✅ Logged in as ${c.user.tag}`);
-  await connect();
-  await ensureIndexes();
-});
+  new SlashCommandBuilder()
+    .setName("gamehistory")
+    .setDescription("View a player's moderation history")
+    .addStringOption((o) =>
+      o.setName("target").setDescription("Roblox username or userId").setRequired(true)
+    )
+    .addIntegerOption((o) =>
+      o
+        .setName("limit")
+        .setDescription("How many records to show (default 5)")
+        .setMinValue(1)
+        .setMaxValue(20)
+        .setRequired(false)
+    )
+    .addBooleanOption((o) =>
+      o
+        .setName("include_voided")
+        .setDescription("Include voided records (management only recommended)")
+        .setRequired(false)
+    ),
 
-async function router(interaction) {
-  if (interaction.isChatInputCommand()) {
-    switch (interaction.commandName) {
-      case "ping":
-        return ping.run(interaction);
-      case "dbtest":
-        return dbtest.run(interaction);
-      case "stafflog":
-        return stafflog.run(interaction);
-      case "gamehistory":
-        return gamehistory.run(interaction);
-      case "case":
-        return caseCmd.run(interaction);
-      case "voidcase":
-        return voidcase.run(interaction, client);
-      case "restorecase":
-        return restorecase.run(interaction, client);
-      default:
-        return;
-    }
+  new SlashCommandBuilder()
+    .setName("case")
+    .setDescription("View a single moderation case")
+    .addStringOption((o) => o.setName("caseid").setDescription("Case ID").setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName("voidcase")
+    .setDescription("Void a moderation case (management)")
+    .addStringOption((o) => o.setName("caseid").setDescription("Case ID").setRequired(true))
+    .addStringOption((o) =>
+      o.setName("reason").setDescription("Why is this being voided?").setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("restorecase")
+    .setDescription("Restore a voided moderation case (management)")
+    .addStringOption((o) => o.setName("caseid").setDescription("Case ID").setRequired(true))
+    .addStringOption((o) =>
+      o.setName("reason").setDescription("Why is this being restored?").setRequired(true)
+    ),
+].map((c) => c.toJSON());
+
+const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+
+(async () => {
+  try {
+    console.log("🌍 Registering GLOBAL commands...");
+    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+    console.log("✅ Global commands registered.");
+  } catch (err) {
+    console.error(err);
   }
-
-  if (interaction.isStringSelectMenu()) {
-    return stafflog.onSelect(interaction);
-  }
-
-  if (interaction.isModalSubmit()) {
-    return stafflog.onModal(interaction, client);
-  }
-
-  if (interaction.isButton()) {
-    return gamehistory.onButton(interaction);
-  }
-}
-
-registerInteractionHandler(client, router);
-
-client.login(config.discordToken);
+})();
