@@ -56,9 +56,15 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
   try {
-    console.log("🌍 Registering GLOBAL commands...");
-    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
-    console.log("✅ Global commands registered.");
+    if (!process.env.CLIENT_ID) throw new Error("Missing CLIENT_ID");
+    if (!process.env.GUILD_ID) throw new Error("Missing GUILD_ID");
+
+    console.log("🏠 Registering GUILD commands...");
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      { body: commands }
+    );
+    console.log("✅ Guild commands registered.");
   } catch (err) {
     console.error(err);
   }
