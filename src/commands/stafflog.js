@@ -70,9 +70,9 @@ module.exports = {
     // Label must be <= 45 chars
     const evidence = new TextInputBuilder()
       .setCustomId("evidence")
-      .setLabel("Evidence links (optional)")
+      .setLabel("Evidence links (Required)")
       .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false)
+      .setRequired(true)
       .setMaxLength(800);
 
     modal.addComponents(
